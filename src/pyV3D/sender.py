@@ -1,4 +1,4 @@
-
+from numpy import array, float32
 
 class Sender(object):
     def send(self, obj, first=False):
@@ -11,7 +11,15 @@ class WV_Sender(Sender):
         self.initialize(**kwargs)
 
     def initialize(self, **kwargs):
-        pass
+        eye    = array([0.0, 0.0, 7.0], dtype=float32)
+        center = array([0.0, 0.0, 0.0], dtype=float32)
+        up     = array([0.0, 1.0, 0.0], dtype=float32)
+        fov   = 30.0
+        zNear = 1.0
+        zFar  = 100.0
+
+        bias = 0
+        self.wv.createContext(bias, fov, zNear, zFar, eye, center, up)
 
     def send(self, obj, first=False):
         if not first:
