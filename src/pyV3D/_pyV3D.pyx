@@ -18,10 +18,13 @@
 #     http://www.cython.org/release/Cython-0.12/Cython/Includes/python.pxd
 
 from libc.stdio cimport printf, fprintf, fopen, fclose, FILE
+from libc.stdlib cimport free
 from cpython cimport PyBytes_AsString
 
-cimport numpy as np
 import numpy as np
+cimport numpy as np
+np.import_array()
+
 import struct
 import os
 
@@ -160,7 +163,65 @@ cdef extern from "wv.h":
 import sys
 
 
-    
+cdef class ArrayWrapper:
+    cdef void* data_ptr
+    cdef int typenum, ndims, own
+    cdef np.npy_intp *dims
+ 
+    cdef int set_data(self, int ndims, np.npy_intp *dims, int typenum, int own, void* data_ptr) except -1:
+        """ Set the data of the array (data is assumed to be contiguous (C))
+        This cannot be done in the constructor as it must recieve C-level
+        arguments.
+        Parameters:
+        -----------
+        ndims: int
+        Number of dimensions
+        dims: np.npy_intp
+        Dimensions
+        typenum: int
+        type of array entries, e.g., NPY_DOUBLE
+        own: int
+        if 0, memory is not owned
+        data_ptr: void*
+        Pointer to the data
+        """
+        self.ndims = ndims
+        self.dims = dims
+        self.typenum = typenum
+        self.own = own
+        self.data_ptr = data_ptr
+        return 0
+ 
+    def __array__(self):
+        """ Here we use the __array__ method, that is called when numpy
+        tries to get an array from the object."""
+        
+        return np.PyArray_SimpleNewFromData(self.ndims, self.dims,
+                                            self.typenum, self.data_ptr)
+ 
+    def __dealloc__(self):
+        """ Frees the array (if self.own is true). This is called by Python when all the
+        references to the object are gone. """
+        if self.own:
+            free(<void*>self.data_ptr)
+
+cdef object npy_arr_from_data(void* data_ptr, int ndims, np.npy_intp *dims,
+                              int typenum, int copy):
+    """Returns a numpy array based on the given data. If copy is False, the data
+    will be owned by the numpy array (and deleted when the numpy array is deallocated).
+    """
+    cdef int i
+    cdef np.npy_intp cdims[10]
+    if copy:
+        own = False
+    else:
+        own = True
+    for i in range(ndims):
+        cdims[i] = dims[i]
+    wrapper = ArrayWrapper()
+    wrapper.set_data(ndims, &cdims[0], typenum, own, data_ptr)
+    return np.array(wrapper, copy=bool(copy))
+   
 cdef int callback(void *wsi, unsigned char *buf, int ibuf, void *f):
     '''This Cython function wraps the python return function, and
     passes it a buffer of binary data and a pointer to the WV_Wrapper.
@@ -218,7 +279,13 @@ def _check(int ret, name='?', errclass=RuntimeError):
         raise errclass("ERROR: return value of %d from function '%s'" % (ret, name))
     return ret
     
-    
+def _get_bounding_box(points):
+    mins = np.min(points.reshape((-1,3)), axis=0)
+    maxs = np.max(points.reshape((-1,3)), axis=0)
+    box = [mins[0], mins[1], mins[2], maxs[0], maxs[1], maxs[2]]
+
+    return box
+
 
 cdef class WV_Wrapper:
 
@@ -328,6 +395,68 @@ cdef class WV_Wrapper:
         
         wv_finishSends(self.context)
 
+
+    def focus_vertices(self):
+        '''
+        Calculates the bounding box of vertices, translates from center
+        to origin and scales by length of longest vertex of the box.
+        '''
+        
+        cdef np.npy_intp dims[1]
+        cdef int ndims
+        cdef int typenum
+        cdef int num_gprims
+        cdef wvGPrim gprim
+        cdef int copy
+        cdef float focus[4]
+        cdef float *cfloat_vertices
+        cdef void *data_ptr
+
+        face_maxs = None
+        face_mins = None
+
+        typenum = np.NPY_FLOAT32
+        ndims = 1
+        copy = 0
+        num_gprims = self.context.nGPrim
+        gprim = self.context.gPrims[0]
+        dims[0] = gprim.nVerts * 3
+       
+        cfloat_vertices = gprim.vertices
+        data_ptr = <void *>cfloat_vertices
+        np_vertices = npy_arr_from_data(data_ptr, ndims, &dims[0], typenum, copy)
+        if(gprim.gtype == WV_TRIANGLE):
+            face_mins = np.min(np_vertices.reshape((-1,3)), axis=0)
+            face_maxs = np.max(np_vertices.reshape((-1,3)), axis=0)
+      
+        for i in range(1, num_gprims):
+            gprim = self.context.gPrims[i]
+            dims[0] = gprim.nVerts * 3
+            np_vertices = npy_arr_from_data(<void *>gprim.vertices, ndims, &dims[0], typenum, copy)
+
+            if(gprim.gtype == WV_TRIANGLE):
+                face_mins_b = np.min(np_vertices.reshape((-1,3)), axis=0)
+                face_maxs_b = np.max(np_vertices.reshape((-1,3)), axis=0)
+
+                face_mins = np.minimum(face_mins, face_mins_b)
+                face_maxs = np.maximum(face_maxs, face_maxs_b)
+          
+        face_box = np.append( face_mins, face_maxs )
+        _get_focus(face_box, focus) 
+
+        for i in range(num_gprims):
+            gprim = self.context.gPrims[i]
+            cfloat_vertices = gprim.vertices
+            dims[0] = gprim.nVerts
+            
+            for j in range( gprim.nVerts ):
+               cfloat_vertices[3*j  ] -= focus[0]
+               cfloat_vertices[3*j+1] -= focus[1]
+               cfloat_vertices[3*j+2] -= focus[2]
+        
+               cfloat_vertices[3*j  ] /= focus[3]
+               cfloat_vertices[3*j+1] /= focus[3]
+               cfloat_vertices[3*j+2] /= focus[3]
 
     def set_face_data(self,  np.ndarray[np.float32_t, mode="c"] points not None,
                              np.ndarray[int, mode="c"] tris not None,
@@ -519,9 +648,10 @@ cdef class WV_Wrapper:
         # vertices 
         _check(wv_setData(WV_REAL32, 2*head, &xyzs[0], WV_VERTICES, &items[0]),
             "wv_setData")
+ 
         if bbox:
             wv_adjustVerts(&items[0], _get_focus(bbox, focus))
- 
+
         # line colors
         if colors is None:
             colors = np.array([0.0, 0.0, 1.0], dtype=np.float32, order='C')
