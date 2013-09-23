@@ -158,7 +158,12 @@ cdef extern from "wv.h":
                          int nHeads, int *heads)
 
     void wv_adjustVerts(wvData *dstruct, float *focus)
-    
+
+    float * wv_getBoundingBox(int nGPrim, wvGPrim * gPrims, float *bbox)
+
+    float * wv_getFocus(float *bbox, float *focus)
+
+    void wv_focusVertices(int nVertices, float *vertices, float *focus)    
 
 import sys
 
@@ -401,62 +406,20 @@ cdef class WV_Wrapper:
         Calculates the bounding box of vertices, translates from center
         to origin and scales by length of longest vertex of the box.
         '''
-        
-        cdef np.npy_intp dims[1]
-        cdef int ndims
-        cdef int typenum
-        cdef int num_gprims
-        cdef wvGPrim gprim
-        cdef int copy
+
+        cdef float bbox[6]
         cdef float focus[4]
-        cdef float *cfloat_vertices
-        cdef void *data_ptr
+        cdef wvGPrim gprim
+        cdef float * vertices
 
-        face_maxs = None
-        face_mins = None
+        wv_getBoundingBox(self.context.nGPrim, &self.context.gPrims[0], &bbox[0])
+        wv_getFocus(&bbox[0], &focus[0]) 
 
-        typenum = np.NPY_FLOAT32
-        ndims = 1
-        copy = 0
-        num_gprims = self.context.nGPrim
-        gprim = self.context.gPrims[0]
-        dims[0] = gprim.nVerts * 3
-       
-        cfloat_vertices = gprim.vertices
-        data_ptr = <void *>cfloat_vertices
-        np_vertices = npy_arr_from_data(data_ptr, ndims, &dims[0], typenum, copy)
-        if(gprim.gtype == WV_TRIANGLE):
-            face_mins = np.min(np_vertices.reshape((-1,3)), axis=0)
-            face_maxs = np.max(np_vertices.reshape((-1,3)), axis=0)
-      
-        for i in range(1, num_gprims):
+        for i in range(self.context.nGPrim):
             gprim = self.context.gPrims[i]
-            dims[0] = gprim.nVerts * 3
-            np_vertices = npy_arr_from_data(<void *>gprim.vertices, ndims, &dims[0], typenum, copy)
+            vertices = gprim.vertices
 
-            if(gprim.gtype == WV_TRIANGLE):
-                face_mins_b = np.min(np_vertices.reshape((-1,3)), axis=0)
-                face_maxs_b = np.max(np_vertices.reshape((-1,3)), axis=0)
-
-                face_mins = np.minimum(face_mins, face_mins_b)
-                face_maxs = np.maximum(face_maxs, face_maxs_b)
-          
-        face_box = np.append( face_mins, face_maxs )
-        _get_focus(face_box, focus) 
-
-        for i in range(num_gprims):
-            gprim = self.context.gPrims[i]
-            cfloat_vertices = gprim.vertices
-            dims[0] = gprim.nVerts
-            
-            for j in range( gprim.nVerts ):
-               cfloat_vertices[3*j  ] -= focus[0]
-               cfloat_vertices[3*j+1] -= focus[1]
-               cfloat_vertices[3*j+2] -= focus[2]
-        
-               cfloat_vertices[3*j  ] /= focus[3]
-               cfloat_vertices[3*j+1] /= focus[3]
-               cfloat_vertices[3*j+2] /= focus[3]
+            wv_focusVertices(gprim.nVerts, &vertices[0], &focus[0])
 
     def set_face_data(self,  np.ndarray[np.float32_t, mode="c"] points not None,
                              np.ndarray[int, mode="c"] tris not None,
