@@ -166,66 +166,6 @@ cdef extern from "wv.h":
     void wv_focusVertices(int nVertices, float *vertices, float *focus)    
 
 import sys
-
-
-cdef class ArrayWrapper:
-    cdef void* data_ptr
-    cdef int typenum, ndims, own
-    cdef np.npy_intp *dims
- 
-    cdef int set_data(self, int ndims, np.npy_intp *dims, int typenum, int own, void* data_ptr) except -1:
-        """ Set the data of the array (data is assumed to be contiguous (C))
-        This cannot be done in the constructor as it must recieve C-level
-        arguments.
-        Parameters:
-        -----------
-        ndims: int
-        Number of dimensions
-        dims: np.npy_intp
-        Dimensions
-        typenum: int
-        type of array entries, e.g., NPY_DOUBLE
-        own: int
-        if 0, memory is not owned
-        data_ptr: void*
-        Pointer to the data
-        """
-        self.ndims = ndims
-        self.dims = dims
-        self.typenum = typenum
-        self.own = own
-        self.data_ptr = data_ptr
-        return 0
- 
-    def __array__(self):
-        """ Here we use the __array__ method, that is called when numpy
-        tries to get an array from the object."""
-        
-        return np.PyArray_SimpleNewFromData(self.ndims, self.dims,
-                                            self.typenum, self.data_ptr)
- 
-    def __dealloc__(self):
-        """ Frees the array (if self.own is true). This is called by Python when all the
-        references to the object are gone. """
-        if self.own:
-            free(<void*>self.data_ptr)
-
-cdef object npy_arr_from_data(void* data_ptr, int ndims, np.npy_intp *dims,
-                              int typenum, int copy):
-    """Returns a numpy array based on the given data. If copy is False, the data
-    will be owned by the numpy array (and deleted when the numpy array is deallocated).
-    """
-    cdef int i
-    cdef np.npy_intp cdims[10]
-    if copy:
-        own = False
-    else:
-        own = True
-    for i in range(ndims):
-        cdims[i] = dims[i]
-    wrapper = ArrayWrapper()
-    wrapper.set_data(ndims, &cdims[0], typenum, own, data_ptr)
-    return np.array(wrapper, copy=bool(copy))
    
 cdef int callback(void *wsi, unsigned char *buf, int ibuf, void *f):
     '''This Cython function wraps the python return function, and
@@ -237,7 +177,7 @@ cdef int callback(void *wsi, unsigned char *buf, int ibuf, void *f):
     status = (<object>f)(<object>wsi, py_buf, ibuf)
     return status     
 
-   
+
 cdef float* _get_focus(bbox, float focus[4]):
     
     size = bbox[3] - bbox[0]
@@ -253,6 +193,18 @@ cdef float* _get_focus(bbox, float focus[4]):
 
     return focus
 
+def get_vertices(WV_Wrapper wv_wrapper):
+    vertices = []
+
+    for i in range(wv_wrapper.context.nGPrim):
+        for j in range(wv_wrapper.context.gPrims[i].nVerts):
+            x = wv_wrapper.context.gPrims[i].vertices[j  ]
+            y = wv_wrapper.context.gPrims[i].vertices[j+1]
+            z = wv_wrapper.context.gPrims[i].vertices[j+2]
+
+            vertices.append((x,y,z))
+
+    return vertices
 
 def make_attr(visible=False,
                    transparency=False,
@@ -283,14 +235,6 @@ def _check(int ret, name='?', errclass=RuntimeError):
     if ret < 0:
         raise errclass("ERROR: return value of %d from function '%s'" % (ret, name))
     return ret
-    
-def _get_bounding_box(points):
-    mins = np.min(points.reshape((-1,3)), axis=0)
-    maxs = np.max(points.reshape((-1,3)), axis=0)
-    box = [mins[0], mins[1], mins[2], maxs[0], maxs[1], maxs[2]]
-
-    return box
-
 
 cdef class WV_Wrapper:
 

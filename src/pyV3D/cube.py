@@ -58,6 +58,26 @@ class CubeGeometry(object):
                              bbox=self.bbox,
                              name="Edge %d"%(i+1))
 
+class FocusedCubeGeometry(CubeGeometry):
+    def __init__(self):
+        super(FocusedCubeGeometry, self).__init__()
+        
+    def get_visualization_data(self, wv):
+        '''Fills the given WV_Wrapper object with data for faces,
+        edges, colors, etc.
+        
+        wv: WV_Wrapper object 
+        '''
+        for i in range(6):  # 6 faces
+            wv.set_face_data(points=self.vertices[i], 
+                             tris=self.triangles, 
+                             colors=self.colors[i],
+                             name="Face %d"%(i+1))
+
+            wv.set_edge_data(points=self.vertices[i],
+                             name="Edge %d"%(i+1))
+
+        wv.focus_vertices()
 
 class CubeSender(WV_Sender):
 

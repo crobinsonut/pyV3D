@@ -2704,10 +2704,10 @@ float * wv_getBoundingBox(int nGPrim, wvGPrim *gPrims, float * bbox)
   bbox[4] = gPrims[0].vertices[4];
   bbox[5] = gPrims[0].vertices[5];
 
-  for(i=0; i<=nGPrim; i++)
+  for(i=0; i<nGPrim; i++)
   {
 
-    for(j=0; j<=gPrims[i].nVerts; j++)
+    for(j=0; j<gPrims[i].nVerts; j++)
     {
 
       if(gPrims[i].gtype == WV_TRIANGLE){
@@ -2755,7 +2755,7 @@ void wv_focusVertices(int nVertices, float *vertices, float * focus)
 {
   int i;
 
-  for(i=0; i<=nVertices; i++)
+  for(i=0; i<nVertices; i++)
   {
 
     vertices[3*i  ] -= focus[0];

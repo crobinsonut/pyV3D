@@ -4,11 +4,12 @@ import unittest
 import tempfile
 import shutil
 
+import pyV3D
 from pyV3D import WV_Wrapper
-from pyV3D.cube import CubeGeometry, CubeSender
+from pyV3D.cube import FocusedCubeGeometry, CubeGeometry, CubeSender
 from pyV3D.stl import STLSender
 
-
+import numpy as np
 class WV_test_Wrapper(WV_Wrapper):
 
     def __init__(self, fname):
@@ -82,6 +83,51 @@ class PyV3DTestCase(unittest.TestCase):
         with open(newname) as f:
             newcontent = f.read()
         self._compare(content, newcontent, cname, newname)
+
+    def test_focusing_vertices(self):
+        cname = os.path.join(self.tdir, 'cube.bin')
+        sender = CubeSender(WV_test_Wrapper(cname))
+
+        sender.send(FocusedCubeGeometry(), first=True)
+        vertices = pyV3D.get_vertices(sender.wv)
+        #gprims = sender.wv.context.gPrims
+        #num_gprims = sender.context.nGPrim
+
+        bounding_box = np.array([-.5, -.5, -.5, .5, .5, .5])
+        for point in vertices:
+            x = point[0]
+            y = point[1]
+            z = point[2]
+        
+            if( x > bounding_box[3] or x < bounding_box[0] ):
+                self.fail("Point (%f, %f, %f) lies outside of bounding box [%f, %f, %f ,%f ,%f, %f]" %
+                    (
+                        x, y, z, 
+                        bounding_box[0], bounding_box[1], bounding_box[2],
+                        bounding_box[3], bounding_box[4], bounding_box[5]
+                    )
+                )
+
+            if( y > bounding_box[4] or x < bounding_box[1] ):
+                self.fail("Point (%f, %f, %f) lies outside of bounding box [%f, %f, %f ,%f ,%f, %f]" %
+                    (
+                        x, y, z, 
+                        bounding_box[0], bounding_box[1], bounding_box[2],
+                        bounding_box[3], bounding_box[4], bounding_box[5]
+                    )
+                )
+                
+            if( z > bounding_box[5] or x < bounding_box[2] ):
+                self.fail("Point (%f, %f, %f) lies outside of bounding box [%f, %f, %f ,%f ,%f, %f]" %
+                    (
+                        x, y, z, 
+                        bounding_box[0], bounding_box[1], bounding_box[2],
+                        bounding_box[3], bounding_box[4], bounding_box[5]
+                    )
+                )
+            
+        sender.wv.binfile.close()
+
         
         
 if __name__ == "__main__":
