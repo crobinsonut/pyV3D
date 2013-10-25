@@ -28,6 +28,7 @@ np.import_array()
 import struct
 
 from wv cimport *
+from _pyV3D cimport WV_Wrapper
 
 # Attributes.
 WV_ON          =  1
@@ -127,8 +128,6 @@ def _get_bounding_box(points):
 
 cdef class WV_Wrapper:
 
-    cdef wvContext* context
-    
     def __cinit__(self):
         self.context = NULL
         self.buffer = BUFLEN*b'\0'

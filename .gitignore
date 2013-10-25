@@ -17,3 +17,5 @@ build.out
 *.egg-info
 *.egg
 *.pyc
+*.pyd
+*.so
