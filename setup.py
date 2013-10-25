@@ -9,13 +9,26 @@ except ImportError:
     print 'numpy was not found.  Aborting build'
     sys.exit(-1)
 
+try:
+    from Cython.Build import cythonize
+except:
+    USE_CYTHON = False
+    ext = ".c"
+else:
+    USE_CYTHON = True
+    ext = ".pyx"
+
+includes = [
+    "src/pyV3D"
+]
+
 srcs = [
-    "src/pyV3D/_pyV3D.c",
+    "src/pyV3D/_pyV3D" + ext,
     "src/pyV3D/wv.c"
 ]
 
 config = Configuration(name="pyV3D")
-config.add_extension("_pyV3D", sources=srcs)
+config.add_extension("_pyV3D", sources=srcs, include_dirs=includes)
 
 kwds = {'version': '0.4.1',
         'install_requires':['numpy', 'tornado', 'argparse'],
@@ -45,7 +58,12 @@ kwds = {'version': '0.4.1',
          }
        }
 
-kwds.update(config.todict())
+config = config.todict()
+
+if USE_CYTHON:
+    config["ext_modules"] = cythonize(config["ext_modules"])
+
+kwds.update(config)
 
 setup(**kwds)
 
