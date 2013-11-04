@@ -11,9 +11,10 @@ sphinx_build/
 .coverage
 openmdao_log.txt
 build.out
-
+src/pyV3D/_pyV3D.html
 ~*
 *~
 *.egg-info
 *.egg
 *.pyc
+*.pyd
