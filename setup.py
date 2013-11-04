@@ -17,6 +17,8 @@ srcs = [
 config = Configuration(name="pyV3D")
 config.add_extension("_pyV3D", sources=srcs)
 
+USE_WIN_SETUP = True if sys.platform == "win32" else False
+
 kwds = {'version': '0.4.1',
         'install_requires':['numpy', 'tornado', 'argparse'],
         'author': '',
@@ -47,5 +49,23 @@ kwds = {'version': '0.4.1',
 
 kwds.update(config.todict())
 
-setup(**kwds)
+if USE_WIN_SETUP:
+    win_setup(**kwds)
+else:
+    setup(**kwds)
 
+def win_setup(**kargs):
+    #alter data to include DLLs
+    kargs["package_data"]["pyV3D"].append("libgcc_s_dw2-1.dll")
+    kargs["package_data"]["pyV3D"].append("msvcr90.dll")
+
+    #copy DLL's into src/pyV3D
+    #Pull msvcr90.dll from python installation
+    #Pull libgcc_s_dw2-1.dll from MinGW/bin installation
+
+    #call setup
+    setup(**kargs)
+
+    #cleanup by removing DLL's from src/pyV3D
+    os.remove("src/pyV3D/libgcc_s_dw2-1.dll")
+    os.remove("src/pyV3D/msvcr90.dll")
