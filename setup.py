@@ -3,6 +3,25 @@ import os
 import setuptools
 import shutil
 
+def win_setup(**kargs):
+    #alter data to include DLLs
+    kargs["package_data"]["pyV3D"].append("libgcc_s_dw2-1.dll")
+    kargs["package_data"]["pyV3D"].append("msvcr90.dll")
+
+    #copy DLL's into src/pyV3D
+    #Pull msvcr90.dll from obscure Windows folder
+    shutil.copyfile("c:/Windows/winsxs/x86_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.21022.8_none_bcb86ed6ac711f91/msvcr90.dll", "src/pyV3D/msvcr90.dll")
+
+    #Pull libgcc_s_dw2-1.dll from MinGW/bin installation
+    shutil.copyfile("C:/minGW/bin/libgcc_s_dw2-1.dll", "src/pyV3D/libgcc_s_dw2-1.dll")
+
+    #call setup
+    setup(**kargs)
+
+    #cleanup by removing DLL's from src/pyV3D
+    os.remove("src/pyV3D/libgcc_s_dw2-1.dll")
+    os.remove("src/pyV3D/msvcr90.dll")
+
 try:
     from numpy.distutils.core import setup
     from numpy.distutils.misc_util import Configuration
@@ -55,21 +74,3 @@ if USE_WIN_SETUP:
 else:
     setup(**kwds)
 
-def win_setup(**kargs):
-    #alter data to include DLLs
-    kargs["package_data"]["pyV3D"].append("libgcc_s_dw2-1.dll")
-    kargs["package_data"]["pyV3D"].append("msvcr90.dll")
-
-    #copy DLL's into src/pyV3D
-    #Pull msvcr90.dll from obscure Windows folder
-    shutil.copyfile("c:/Windows/winsxs/x86_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.21022.8_none_bcb86ed6ac711f91/msvcr90.dll", "src/pyV3D/msvcr90.dll")
-
-    #Pull libgcc_s_dw2-1.dll from MinGW/bin installation
-    shutil.copyfile("C:/minGW/bin/libgcc_s_dw2-1.dll", "src/pyV3D/libgcc_s_dw2-1.dll")
-
-    #call setup
-    setup(**kargs)
-
-    #cleanup by removing DLL's from src/pyV3D
-    os.remove("src/pyV3D/libgcc_s_dw2-1.dll")
-    os.remove("src/pyV3D/msvcr90.dll")
