@@ -1,6 +1,7 @@
 import sys
 import os
 import setuptools
+import shutil
 
 try:
     from numpy.distutils.core import setup
@@ -60,8 +61,11 @@ def win_setup(**kargs):
     kargs["package_data"]["pyV3D"].append("msvcr90.dll")
 
     #copy DLL's into src/pyV3D
-    #Pull msvcr90.dll from python installation
+    #Pull msvcr90.dll from obscure Windows folder
+    shutil.copyfile("c:/Windows/winsxs/x86_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.21022.8_none_bcb86ed6ac711f91/msvcr90.dll", "src/pyV3D/msvcr90.dll")
+
     #Pull libgcc_s_dw2-1.dll from MinGW/bin installation
+    shutil.copyfile("C:/minGW/bin/libgcc_s_dw2-1.dll", "src/pyV3D/libgcc_s_dw2-1.dll")
 
     #call setup
     setup(**kargs)
