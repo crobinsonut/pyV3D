@@ -2,10 +2,8 @@ import sys
 import os
 import setuptools
 import shutil
-import log
 
 try:
-    from numpy.distutils import log
     from numpy.distutils.core import setup
     from numpy.distutils.misc_util import Configuration, msvc_runtime_library
     from numpy.distutils.mingw32ccompiler import find_dll
@@ -44,11 +42,18 @@ def find_gcc_exe():
 
     return find_gcc_from_CC() or find_gcc_from_path()
 
-def win_setup(**kargs):
+def build_win_egg(**kargs):
     msvcr_name = msvc_runtime_library()
     msvcr_dll_name = msvcr_name + '.dll'
 
-    log.info("Searching for %s to copy into build" % msvcr_dll_name)
+    libgcc_name = "libgcc_s_dw2-1"
+    libgcc_dll_name = libgcc_name + '.dll'
+
+    pkg_dir = os.path.join("src", "pyV3D")
+    msvcr_dst_dll_file = os.path.join(pkg_dir, msvcr_dll_name)
+    libgcc_dst_dll_file = os.path.join(pkg_dir, libgcc_dll_name)
+
+    print("Searching for %s to copy into %s" % (msvcr_dll_name, pkg_dir))
 
     msvcr_dll_file = find_dll(msvcr_dll_name)
     
@@ -56,19 +61,22 @@ def win_setup(**kargs):
         print "Could not find %s to redistribute with egg. Aborting build." % msvcr_dll_name
         sys.exit(-1)
 
-    log.info("Found %s. Copying from %s to %s" % msvcr_dll_name, msvcr_dll_file, "src/pyV3D/%s" % msvcr_dll_file)
-    shutil.copyfile(msvcr_dll_file, "src/pyV3D/%s" % msvcr_dll_name)
 
-    libgcc_name = "libgcc_s_dw2-1"
-    libgcc_dll_name = libgcc_name + '.dll'
+    print("Copying %s -> %s" % (msvcr_dll_file, msvcr_dst_dll_file))
+
+    shutil.copyfile(msvcr_dll_file, msvcr_dst_dll_file)
+
+    print("Searching for %s to copy into %s" % (libgcc_dll_name, pkg_dir))
+
     libgcc_dll_file = find_libgcc_dll(libgcc_dll_name)
 
     if not libgcc_dll_file:
         print "Could not find %s to redistribute with egg. Aborting build."  % libgcc_dll_name
         sys.exit(-1)
 
-    log.info("Found %s. Copying from %s to %s" % libgcc_dll_name, msvcr_dll_file, "src/pyV3D/%s" % libgcc_dll_file)
-    shutil.copyfile(libgcc_dll_file, "src/pyV3D/libgcc_s_dw2-1.dll")
+    print("Copying %s -> %s" % (libgcc_dll_file, libgcc_dst_dll_file))
+
+    shutil.copyfile(libgcc_dll_file, libgcc_dst_dll_file)
 
     #alter data to include DLLs
     kargs["package_data"]["pyV3D"].append(libgcc_dll_name)
@@ -81,8 +89,15 @@ def win_setup(**kargs):
         raise e
     finally:
         #cleanup by removing DLL's from src/pyV3D
-        os.remove("src/pyV3D/%s" % libgcc_dll_name)
-        os.remove("src/pyV3D/%s" % msvcr_dll_name)
+        print("Cleaning up %s" % pkg_dir)
+
+        if os.path.isfile(libgcc_dst_dll_file):
+            print("Removing %s" % libgcc_dst_dll_file)
+            os.remove(libgcc_dst_dll_file)
+
+        if os.path.isfile(msvcr_dst_dll_file):
+            print("Removing %s" % msvcr_dst_dll_file)
+            os.remove(msvcr_dst_dll_file)
 
 srcs = [
     "src/pyV3D/_pyV3D.c",
@@ -126,7 +141,7 @@ kwds.update(config.todict())
 
 if sys.argv[1] == "bdist_egg":
     if USE_WIN_SETUP:
-        win_setup(**kwds)
+        build_win_egg(**kwds)
 else:
     setup(**kwds)
 
