@@ -3,6 +3,13 @@ import os
 import setuptools
 import shutil
 
+try:
+    from numpy.distutils.core import setup
+    from numpy.distutils.misc_util import Configuration
+except ImportError:
+    print 'numpy was not found.  Aborting build'
+    sys.exit(-1)
+
 def win_setup(**kargs):
     #alter data to include DLLs
     kargs["package_data"]["pyV3D"].append("libgcc_s_dw2-1.dll")
@@ -10,10 +17,10 @@ def win_setup(**kargs):
 
     #copy DLL's into src/pyV3D
     #Pull msvcr90.dll from obscure Windows folder
-    shutil.copyfile("c:/Windows/winsxs/x86_microsoft.vc90.crt_1fc8b3b9a1e18e3b_9.0.21022.8_none_bcb86ed6ac711f91/msvcr90.dll", "src/pyV3D/msvcr90.dll")
+    shutil.copyfile("c:/users/crrobin3/Desktop/Portable Python 2.7.5.1/app/msvcr90.dll", "src/pyV3D/msvcr90.dll")
 
     #Pull libgcc_s_dw2-1.dll from MinGW/bin installation
-    shutil.copyfile("C:/minGW/bin/libgcc_s_dw2-1.dll", "src/pyV3D/libgcc_s_dw2-1.dll")
+    shutil.copyfile("C:/users/crrobin3/minGW/bin/libgcc_s_dw2-1.dll", "src/pyV3D/libgcc_s_dw2-1.dll")
 
     #call setup
     setup(**kargs)
@@ -21,13 +28,6 @@ def win_setup(**kargs):
     #cleanup by removing DLL's from src/pyV3D
     os.remove("src/pyV3D/libgcc_s_dw2-1.dll")
     os.remove("src/pyV3D/msvcr90.dll")
-
-try:
-    from numpy.distutils.core import setup
-    from numpy.distutils.misc_util import Configuration
-except ImportError:
-    print 'numpy was not found.  Aborting build'
-    sys.exit(-1)
 
 srcs = [
     "src/pyV3D/_pyV3D.c",
@@ -53,7 +53,7 @@ kwds = {'version': '0.4.1',
         'maintainer': 'Kenneth T. Moore',
         'maintainer_email': 'kenneth.t.moore-1@nasa.gov',
         'package_data': {
-               'pyV3D': ['wvclient/*.html', 'wvclient/WebViewer/*.js', 'ligcc_s_dw2-1.dll', 'msvcr90.dll'],
+               'pyV3D': ['wvclient/*.html', 'wvclient/WebViewer/*.js', 'libgcc_s_dw2-1.dll', 'msvcr90.dll'],
                'pyV3D.test': ['*.stl', '*.bin']
         },
         'package_dir': {'': 'src'},
@@ -69,8 +69,9 @@ kwds = {'version': '0.4.1',
 
 kwds.update(config.todict())
 
-if USE_WIN_SETUP:
-    win_setup(**kwds)
+if sys.argv[1] == "bdist_egg":
+    if USE_WIN_SETUP:
+        win_setup(**kwds)
 else:
     setup(**kwds)
 

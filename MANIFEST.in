@@ -1,4 +1,4 @@
 recursive-include src/pyV3D/test *.py *.stl *.bin
 recursive-include src/pyV3D/wvclient *.html *.js
-recursive-include src/pyV3D/ *.dll
+recursive-include src/pyV3D *.dll
 
