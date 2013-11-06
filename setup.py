@@ -2,32 +2,87 @@ import sys
 import os
 import setuptools
 import shutil
+import log
 
 try:
+    from numpy.distutils import log
     from numpy.distutils.core import setup
-    from numpy.distutils.misc_util import Configuration
+    from numpy.distutils.misc_util import Configuration, msvc_runtime_library
+    from numpy.distutils.mingw32ccompiler import find_dll
 except ImportError:
     print 'numpy was not found.  Aborting build'
     sys.exit(-1)
 
+def find_libgcc_dll(dll_name):
+    gcc_exe_file = find_gcc_exe()
+    gcc_bin_dir = gcc_exe_file.rstrip("gcc.exe")
+    
+    libgcc_dll_file = os.path.join(gcc_bin_dir, dll_name)
+
+    if os.path.isfile(libgcc_dll_file):
+        return libgcc_dll_file
+
+    return ""
+
+def find_gcc_exe():
+    def find_gcc_from_CC():
+        return os.environ["CC"] if "CC" in os.environ else ""
+
+    def find_gcc_from_path():
+        c_compiler_name = "gcc"
+        c_compiler_exe_name = "gcc" + '.exe'
+        env_var_name = "path"
+
+        paths = os.environ[env_var_name].split(';')
+        
+        for path in paths:
+            c_compiler_exe_file = os.path.join(path, c_compiler_exe_name)
+            if os.path.isfile(c_compiler_exe_file):
+                return c_compiler_exe_file
+
+        return ""
+
+    return find_gcc_from_CC() or find_gcc_from_path()
+
 def win_setup(**kargs):
+    msvcr_name = msvc_runtime_library()
+    msvcr_dll_name = msvcr_name + '.dll'
+
+    log.info("Searching for %s to copy into build" % msvcr_dll_name)
+
+    msvcr_dll_file = find_dll(msvcr_dll_name)
+    
+    if not msvcr_dll_file:
+        print "Could not find %s to redistribute with egg. Aborting build." % msvcr_dll_name
+        sys.exit(-1)
+
+    log.info("Found %s. Copying from %s to %s" % msvcr_dll_name, msvcr_dll_file, "src/pyV3D/%s" % msvcr_dll_file)
+    shutil.copyfile(msvcr_dll_file, "src/pyV3D/%s" % msvcr_dll_name)
+
+    libgcc_name = "libgcc_s_dw2-1"
+    libgcc_dll_name = libgcc_name + '.dll'
+    libgcc_dll_file = find_libgcc_dll(libgcc_dll_name)
+
+    if not libgcc_dll_file:
+        print "Could not find %s to redistribute with egg. Aborting build."  % libgcc_dll_name
+        sys.exit(-1)
+
+    log.info("Found %s. Copying from %s to %s" % libgcc_dll_name, msvcr_dll_file, "src/pyV3D/%s" % libgcc_dll_file)
+    shutil.copyfile(libgcc_dll_file, "src/pyV3D/libgcc_s_dw2-1.dll")
+
     #alter data to include DLLs
-    kargs["package_data"]["pyV3D"].append("libgcc_s_dw2-1.dll")
-    kargs["package_data"]["pyV3D"].append("msvcr90.dll")
+    kargs["package_data"]["pyV3D"].append(libgcc_dll_name)
+    kargs["package_data"]["pyV3D"].append(msvcr_dll_name)
 
-    #copy DLL's into src/pyV3D
-    #Pull msvcr90.dll from obscure Windows folder
-    shutil.copyfile("c:/users/crrobin3/Desktop/Portable Python 2.7.5.1/app/msvcr90.dll", "src/pyV3D/msvcr90.dll")
-
-    #Pull libgcc_s_dw2-1.dll from MinGW/bin installation
-    shutil.copyfile("C:/users/crrobin3/minGW/bin/libgcc_s_dw2-1.dll", "src/pyV3D/libgcc_s_dw2-1.dll")
-
-    #call setup
-    setup(**kargs)
-
-    #cleanup by removing DLL's from src/pyV3D
-    os.remove("src/pyV3D/libgcc_s_dw2-1.dll")
-    os.remove("src/pyV3D/msvcr90.dll")
+    try:
+        #call setup
+        setup(**kargs)
+    except e:
+        raise e
+    finally:
+        #cleanup by removing DLL's from src/pyV3D
+        os.remove("src/pyV3D/%s" % libgcc_dll_name)
+        os.remove("src/pyV3D/%s" % msvcr_dll_name)
 
 srcs = [
     "src/pyV3D/_pyV3D.c",
@@ -53,7 +108,7 @@ kwds = {'version': '0.4.1',
         'maintainer': 'Kenneth T. Moore',
         'maintainer_email': 'kenneth.t.moore-1@nasa.gov',
         'package_data': {
-               'pyV3D': ['wvclient/*.html', 'wvclient/WebViewer/*.js', 'libgcc_s_dw2-1.dll', 'msvcr90.dll'],
+               'pyV3D': ['wvclient/*.html', 'wvclient/WebViewer/*.js'],
                'pyV3D.test': ['*.stl', '*.bin']
         },
         'package_dir': {'': 'src'},
