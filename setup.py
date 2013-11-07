@@ -5,7 +5,7 @@ import shutil
 
 try:
     from numpy.distutils.core import setup
-    from numpy.distutils.misc_util import Configuration, msvc_runtime_library
+    from numpy.distutils.misc_util import Configuration, msvc_runtime_library, get_build_architecture
 except ImportError:
     print 'numpy was not found.  Aborting build'
     sys.exit(-1)
