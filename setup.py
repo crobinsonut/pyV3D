@@ -6,35 +6,37 @@ import shutil
 try:
     from numpy.distutils.core import setup
     from numpy.distutils.misc_util import Configuration, msvc_runtime_library
-    from numpy.distutils.mingw32ccompiler import find_dll
 except ImportError:
     print 'numpy was not found.  Aborting build'
     sys.exit(-1)
 
-def find_dll(dll_name):
+try:
+    from numpy.distutils.mingw32ccompiler import find_dll
+except:
+    def find_dll(dll_name):
 
-    arch = {'AMD64' : 'amd64',
-            'Intel' : 'x86'}[get_build_architecture()]
+        arch = {'AMD64' : 'amd64',
+                'Intel' : 'x86'}[get_build_architecture()]
 
-    def _find_dll_in_winsxs(dll_name):
-        # Walk through the WinSxS directory to find the dll.
-        winsxs_path = os.path.join(os.environ['WINDIR'], 'winsxs')
-        if not os.path.exists(winsxs_path):
+        def _find_dll_in_winsxs(dll_name):
+            # Walk through the WinSxS directory to find the dll.
+            winsxs_path = os.path.join(os.environ['WINDIR'], 'winsxs')
+            if not os.path.exists(winsxs_path):
+                return None
+            for root, dirs, files in os.walk(winsxs_path):
+                if dll_name in files and arch in root:
+                    return os.path.join(root, dll_name)
             return None
-        for root, dirs, files in os.walk(winsxs_path):
-            if dll_name in files and arch in root:
-                return os.path.join(root, dll_name)
-        return None
 
-    def _find_dll_in_path(dll_name):
-        # First, look in the Python directory, then scan PATH for
-        # the given dll name.
-        for path in [sys.prefix] + os.environ['PATH'].split(';'):
-            filepath = os.path.join(path, dll_name)
-            if os.path.exists(filepath):
-                return os.path.abspath(filepath)
+        def _find_dll_in_path(dll_name):
+            # First, look in the Python directory, then scan PATH for
+            # the given dll name.
+            for path in [sys.prefix] + os.environ['PATH'].split(';'):
+                filepath = os.path.join(path, dll_name)
+                if os.path.exists(filepath):
+                    return os.path.abspath(filepath)
 
-    return _find_dll_in_winsxs(dll_name) or _find_dll_in_path(dll_name)
+        return _find_dll_in_winsxs(dll_name) or _find_dll_in_path(dll_name)
 
 def find_libgcc_dll(dll_name):
     gcc_exe_file = find_gcc_exe()
