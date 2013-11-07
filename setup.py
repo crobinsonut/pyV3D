@@ -5,7 +5,7 @@ import shutil
 
 try:
     from numpy.distutils.core import setup
-    from numpy.distutils.misc_util import Configuration, msvc_runtime_library, get_build_architecture
+    from numpy.distutils.misc_util import Configuration, msvc_runtime_library
 except ImportError:
     print 'numpy was not found.  Aborting build'
     sys.exit(-1)
@@ -13,6 +13,7 @@ except ImportError:
 try:
     from numpy.distutils.mingw32ccompiler import find_dll
 except:
+    from numpy.distutils.misc_util import get_build_architecture
     def find_dll(dll_name):
 
         arch = {'AMD64' : 'amd64',
